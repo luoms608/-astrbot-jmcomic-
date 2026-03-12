@@ -3,5 +3,6 @@ display_name: JMComic # 用于展示的名字
 desc: 禁漫天堂搜索/详情/下载+打包pdf发送 # 插件简短描述
 version: v1.0.0 # 插件版本号
 author: luoms # 作者
-repo: "" # 插件的仓库地址
+repo: "https://github.com/luoms608/-astrbot-jmcomic-" # 插件的仓库地址
+
 
