@@ -7,7 +7,6 @@ from astrbot.api.message_components import File, Plain
 import asyncio
 from jmcomic import *
 import os
-import zipfile
 import shutil
 from pathlib import Path
 import time
@@ -116,4 +115,5 @@ class MyPlugin(Star):
         
                    yield event.chain_result(components)
                    shutil.rmtree(album_folder)
+
                    os.remove(pdf_path_obj)
