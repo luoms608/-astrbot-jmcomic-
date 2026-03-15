@@ -128,7 +128,7 @@ class MyPlugin(Star):
                 从分类筛选结果中随机选取一个本子
                  :return: 随机选中的本子ID和标题 (aid, atitle)
                   """
-               # 1. 首先获取分类数据（这里以周榜为例，你可以根据需要修改参数）
+               # 获取分类数据（这里以周榜为例，你可以根据需要修改参数）
                   page = cl.categories_filter(
                   page=1,  # 可以选择任意页码
                  time=JmMagicConstants.TIME_WEEK,
@@ -136,15 +136,14 @@ class MyPlugin(Star):
                  order_by=JmMagicConstants.ORDER_BY_VIEW,
                    )
 
-    # 2. 将分页数据转换为列表（方便随机选取）
-                  comic_list = list(page)  # comic_list 格式: [(aid1, atitle1), (aid2, atitle2), ...]
+    #将分页数据转换为列表
+                  comic_list = list(page) 
 
-    # 3. 检查列表是否为空，避免索引错误
                   if not comic_list:
                      print("没有找到符合条件的本子")
                      return None, None
 
-    # 4. 随机选取一个
+    #随机选取一个
                   random_comic = random.choice(comic_list)
     
                   return random_comic
@@ -165,7 +164,6 @@ class MyPlugin(Star):
         # 收集当前页的所有本子
                     all_comics.extend(list(page))
         
-        # 检查是否达到最大页数（修复核心：手动追踪页码）
                     if current_page_num >= max_page:
                          break
         
