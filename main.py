@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 import time
 import img2pdf
+import random
 @register("jmcomic", "luoms", "一个简单的插件", "1.0.0")
 class MyPlugin(Star):
     def __init__(self, context: Context):
@@ -24,7 +25,8 @@ class MyPlugin(Star):
             help_text = (
                 "请按格式使用：\n"
                 "/jmcomic info [作品id] \n"
-                "/jmcomic download [作品id]"
+                "/jmcomic download [作品id]\n"
+                "/jmcomic random \n"
             )
             yield event.plain_result(help_text)
             return
@@ -50,7 +52,7 @@ class MyPlugin(Star):
             id=str(id).strip()
             detail= client.get_album_detail(id)
             if not detail:
-                  yield event.plain_result(MessageFormatter.format_error("not_found"))
+                  yield event.plain_result("未找到该作品信息")
                   return
             yield  event.plain_result(detail.title)
             if os.path.exists(image_path):
@@ -64,30 +66,30 @@ class MyPlugin(Star):
             if not id.isdigit():
                     yield event.plain_result("作品ID必须是数字")
                     return
-        album_id = id  
-        album_folder = None
-        pdf_file = None
-        file_count = 0
+            album_id = id  
+            album_folder = None
+            pdf_file = None
+            file_count = 0
 
-        before_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
+            before_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
 
 # 下载本子
-        option = JmOption.default()
-        download_album(album_id, option)
+            option = JmOption.default()
+            download_album(album_id, option)
 
 # 记录下载后的文件夹
-        after_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
+            after_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
 
 # 找出新创建的文件夹
-        new_dirs = after_dirs - before_dirs
-
-        if new_dirs:
+            new_dirs = after_dirs - before_dirs
+   
+            if new_dirs:
                album_folder = Path(list(new_dirs)[0])
                pdf_filename = f"JM_{album_id}_{int(time.time())}.pdf"
                pdf_path_obj = Path(pdf_filename).resolve()
     
     # 1. 收集图片路径并排序（确保页码顺序正确）
-    # 假设图片后缀是 .jpg 或 .png
+   
                images = []
                extensions = ('.jpg', '.jpeg', '.png', '.webp')
     
@@ -107,7 +109,7 @@ class MyPlugin(Star):
                    pdf_full_path = str(pdf_path_obj).replace("\\", "/")
 
         # 3. 构造发送组件
-                   from astrbot.api.message_components import File, Plain
+                  
                    components = [
                         Comp.File(file=str(pdf_full_path), name=f"JM_{album_id}.pdf"),
                         
@@ -115,5 +117,67 @@ class MyPlugin(Star):
         
                    yield event.chain_result(components)
                    shutil.rmtree(album_folder)
-
                    os.remove(pdf_path_obj)
+        
+        if command_type == "random":
+             op = JmOption.default()
+             cl = op.new_jm_client()
+
+             def get_random_comic_from_category():
+                  """
+                从分类筛选结果中随机选取一个本子
+                 :return: 随机选中的本子ID和标题 (aid, atitle)
+                  """
+               # 1. 首先获取分类数据（这里以周榜为例，你可以根据需要修改参数）
+                  page = cl.categories_filter(
+                  page=1,  # 可以选择任意页码
+                 time=JmMagicConstants.TIME_WEEK,
+                category=JmMagicConstants.CATEGORY_ALL,
+                 order_by=JmMagicConstants.ORDER_BY_VIEW,
+                   )
+
+    # 2. 将分页数据转换为列表（方便随机选取）
+                  comic_list = list(page)  # comic_list 格式: [(aid1, atitle1), (aid2, atitle2), ...]
+
+    # 3. 检查列表是否为空，避免索引错误
+                  if not comic_list:
+                     print("没有找到符合条件的本子")
+                     return None, None
+
+    # 4. 随机选取一个
+                  random_comic = random.choice(comic_list)
+    
+                  return random_comic
+
+# 从多页结果中随机选一个
+             def get_random_comic_from_multiple_pages(max_page=3):
+                  """从多页结果中随机选一个本子"""
+                  all_comics = []
+                  current_page_num = 1  # 手动追踪当前页码
+    
+    # 遍历多页
+                  for page in cl.categories_filter_gen(
+                     page=1,
+                     time=JmMagicConstants.TIME_WEEK,
+                     category=JmMagicConstants.CATEGORY_ALL,
+                     order_by=JmMagicConstants.ORDER_BY_VIEW,
+                          ):
+        # 收集当前页的所有本子
+                    all_comics.extend(list(page))
+        
+        # 检查是否达到最大页数（修复核心：手动追踪页码）
+                    if current_page_num >= max_page:
+                         break
+        
+                    current_page_num += 1  # 页码自增
+
+    # 随机选取
+                  if all_comics:
+                     return random.choice(all_comics)
+                  return None, None
+
+             aid2, atitle2 = get_random_comic_from_multiple_pages(max_page=5)
+             chain=[
+                        Comp.Plain(f"随机选中的本子：ID: {aid2}, 标题: {atitle2}")
+             ]
+             yield event.chain_result(chain)
