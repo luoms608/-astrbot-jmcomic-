@@ -19,5 +19,13 @@
 
 
 
+/jmcomic随机选取一个本子
+
+
+
 
 感谢大佬开源的jmcomic库项目地址https://github.com/hect0x7/JMComic-Crawler-Python
+
+
+
+本人第一次写相关仓库如有不好的地方或者bug还请提出
