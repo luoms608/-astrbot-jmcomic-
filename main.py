@@ -27,6 +27,7 @@ class MyPlugin(Star):
                 "/jmcomic info [作品id] \n"
                 "/jmcomic download [作品id]\n"
                 "/jmcomic random \n"
+                "/jmcomic tag [标签]\n"
             )
             yield event.plain_result(help_text)
             return
@@ -98,8 +99,7 @@ class MyPlugin(Star):
                    str(f) for f in album_folder.rglob('*') 
                       if f.suffix.lower() in extensions
                              ]
-               img_paths.sort() # 这一步很重要，防止乱序
-    
+               img_paths.sort()
                if img_paths:
         # 2. 转换为 PDF
                    with open(pdf_path_obj, "wb") as f:
@@ -179,3 +179,88 @@ class MyPlugin(Star):
                         Comp.Plain(f"随机选中的本子：ID: {aid2}, 标题: {atitle2}")
              ]
              yield event.chain_result(chain)
+        if command_type == "tag":
+            if len(args) < 3:
+                yield event.plain_result("请输入标签：/jmcomic tag [标签]")
+                return
+            
+            tag = args[2]
+            option = JmOption.default()
+            
+            work_dir = os.getcwd()
+            target_download_path = os.path.join(work_dir, 'downloads')
+            os.makedirs(target_download_path, exist_ok=True)
+            client = option.new_jm_client()
+            
+            print(f'\n[开始搜索] 标签: {tag}')
+            
+            aid_list = []
+            for page_num in range(1, 11):
+                page: JmSearchPage = client.search_tag(tag, page=page_num)
+                for aid, atitle, tag_list in page.iter_id_title_tag():
+                    aid_list.append((aid, atitle))
+            
+            print(f'[搜索完成] 共找到 {len(aid_list)} 个相册')
+            
+            if aid_list:
+                # 随机选择一个相册
+                random_album = random.choice(aid_list)
+                aid, atitle = random_album
+                print(f'[随机选中] AID: {aid}, 标题: {atitle}')
+                print(f'[下载开始] 正在下载...')
+                
+                # 记录下载前的文件列表（监控实际工作目录）
+                before_download = set(os.listdir(work_dir)) if os.path.exists(work_dir) else set()
+                
+                download_album([aid], option)
+                
+                print('[下载完成] 正在移动文件...')
+                
+                # 找到新增的文件夹（下载的相册）
+                after_download = set(os.listdir(work_dir)) if os.path.exists(work_dir) else set()
+                new_folders = after_download - before_download
+                
+                if new_folders:
+                    # 移动新下载的文件夹到目标位置
+                    for new_folder in new_folders:
+                        src_path = os.path.join(work_dir, new_folder)
+                        dst_path = os.path.join(target_download_path, new_folder)
+                        
+                        if os.path.isdir(src_path):
+                            print(f'[移动文件] {new_folder}')
+                           
+                            if os.path.exists(dst_path):
+                                shutil.rmtree(dst_path)
+                            shutil.move(src_path, dst_path)
+                            print(f'[成功] 已移动到 {dst_path}')
+                            
+                            # 转换PDF并发送
+                            album_folder = Path(dst_path)
+                            if album_folder.exists():
+                                pdf_filename = f"JM_{aid}_{int(time.time())}.pdf"
+                                pdf_path_obj = Path(work_dir) / pdf_filename
+                                
+                                # 收集图片路径并排序（确保页码顺序正确）
+                                extensions = ('.jpg', '.jpeg', '.png', '.webp')
+                                img_paths = sorted([str(f) for f in album_folder.rglob('*') 
+                                                  if f.suffix.lower() in extensions])
+                                
+                                if img_paths:
+                                    # 转换为 PDF
+                                    with open(pdf_path_obj, "wb") as f:
+                                        f.write(img2pdf.convert(img_paths))
+                                    
+                                    pdf_full_path = str(pdf_path_obj).replace("\\", "/")
+                                    components = [
+                                        Comp.File(file=str(pdf_full_path), name=f"JM_{aid}.pdf"),
+                                    ]
+                                    yield event.chain_result(components)
+                                    
+                                    # 清理文件
+                                    shutil.rmtree(album_folder)
+                                    os.remove(pdf_path_obj)
+                else:
+                    print('[警告] 未找到新增文件夹，文件可能下载到其他位置')
+            else:
+                print(f'[搜索结果] 未找到匹配 "{tag}" 的内容')
+                yield event.plain_result(f'未找到匹配 "{tag}" 的内容')
