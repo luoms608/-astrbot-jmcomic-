@@ -5,14 +5,16 @@
 
 感谢大佬开源的jmcomic库项目地址https://github.com/hect0x7/JMComic-Crawler-Python
 
-用法为/jmcomic info id  //本子的车牌号
+用法为/jmcomic info [id]  //本子的车牌号
 
 可以获取本子封面和作品信息
 
-/jmcomic download id  //本子的车牌号
+/jmcomic download [id]  //本子的车牌号
 
 以pdf的格式发送本子
 
 /jmcomic random 随机选取一个本子
+
+/jmcomic tag [标签] 用相关标签搜索并下载本子
 
 本人第一次写相关仓库如有不好的地方或者bug还请提出
