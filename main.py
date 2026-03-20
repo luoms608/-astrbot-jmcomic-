@@ -89,7 +89,7 @@ class MyPlugin(Star):
                pdf_filename = f"JM_{album_id}_{int(time.time())}.pdf"
                pdf_path_obj = Path(pdf_filename).resolve()
     
-    # 1. 收集图片路径并排序（确保页码顺序正确）
+    #  收集图片路径并排序（确保页码顺序正确）
    
                images = []
                extensions = ('.jpg', '.jpeg', '.png', '.webp')
@@ -108,8 +108,7 @@ class MyPlugin(Star):
                    file_count = len(img_paths)
                    pdf_full_path = str(pdf_path_obj).replace("\\", "/")
 
-        # 3. 构造发送组件
-                  
+     
                    components = [
                         Comp.File(file=str(pdf_full_path), name=f"JM_{album_id}.pdf"),
                         
@@ -136,7 +135,6 @@ class MyPlugin(Star):
                  order_by=JmMagicConstants.ORDER_BY_VIEW,
                    )
 
-    #将分页数据转换为列表
                   comic_list = list(page) 
 
                   if not comic_list:
@@ -169,7 +167,6 @@ class MyPlugin(Star):
         
                     current_page_num += 1  # 页码自增
 
-    # 随机选取
                   if all_comics:
                      return random.choice(all_comics)
                   return None, None
