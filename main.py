@@ -33,37 +33,40 @@ class MyPlugin(Star):
             return
         command_type = args[1]
         if command_type == "info":
+            
             if len(args) < 3:
                     yield event.plain_result("请输入作品id：/jmcomic info [id]")
                     return
                     
             id = args[2]
+            
             if not id.isdigit():
                     yield event.plain_result("作品ID必须是数字")
                     return
             client = JmOption.default().new_jm_client()
-
-# 本子实体类
             album: JmAlbumDetail = client.get_album_detail(id)
-
-# 下载本子封面图，保存为 cover.png （图片后缀可指定为jpg、webp等）
             client.download_album_cover(id, './cover.png')
             image_path = "./cover.png"
             yield event.image_result(image_path)
             id=str(id).strip()
             detail= client.get_album_detail(id)
+            
             if not detail:
                   yield event.plain_result("未找到该作品信息")
                   return
             yield  event.plain_result(detail.title)
+            
             if os.path.exists(image_path):
                  os.remove(image_path)
+                
         elif command_type == "download":
+            
             if len(args) < 3:
                     yield event.plain_result("请输入作品id：/jmcomic download [id]")
                     return
                     
             id = args[2]
+            
             if not id.isdigit():
                     yield event.plain_result("作品ID必须是数字")
                     return
@@ -71,47 +74,31 @@ class MyPlugin(Star):
             album_folder = None
             pdf_file = None
             file_count = 0
-
             before_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
-
-# 下载本子
             option = JmOption.default()
             download_album(album_id, option)
-
-# 记录下载后的文件夹
             after_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
-
-# 找出新创建的文件夹
             new_dirs = after_dirs - before_dirs
    
             if new_dirs:
                album_folder = Path(list(new_dirs)[0])
                pdf_filename = f"JM_{album_id}_{int(time.time())}.pdf"
                pdf_path_obj = Path(pdf_filename).resolve()
-    
-    #  收集图片路径并排序（确保页码顺序正确）
-   
                images = []
                extensions = ('.jpg', '.jpeg', '.png', '.webp')
-    
-    # 获取文件夹下所有图片并按文件名自然排序
                img_paths = [
                    str(f) for f in album_folder.rglob('*') 
                       if f.suffix.lower() in extensions
                              ]
                img_paths.sort()
+                
                if img_paths:
-        # 2. 转换为 PDF
                    with open(pdf_path_obj, "wb") as f:
                      f.write(img2pdf.convert(img_paths))
-        
                    file_count = len(img_paths)
                    pdf_full_path = str(pdf_path_obj).replace("\\", "/")
-
-     
                    components = [
                         Comp.File(file=str(pdf_full_path), name=f"JM_{album_id}.pdf"),
-                        
         ]
         
                    yield event.chain_result(components)
@@ -121,62 +108,49 @@ class MyPlugin(Star):
         if command_type == "random":
              op = JmOption.default()
              cl = op.new_jm_client()
-
+            
              def get_random_comic_from_category():
-                  """
-                从分类筛选结果中随机选取一个本子
-                 :return: 随机选中的本子ID和标题 (aid, atitle)
-                  """
-               # 获取分类数据（这里以周榜为例，你可以根据需要修改参数）
                   page = cl.categories_filter(
-                  page=1,  # 可以选择任意页码
+                  page=1, 
                  time=JmMagicConstants.TIME_WEEK,
                 category=JmMagicConstants.CATEGORY_ALL,
                  order_by=JmMagicConstants.ORDER_BY_VIEW,
                    )
-
                   comic_list = list(page) 
-
+                 
                   if not comic_list:
                      print("没有找到符合条件的本子")
                      return None, None
-
-    #随机选取一个
                   random_comic = random.choice(comic_list)
-    
                   return random_comic
-
-# 从多页结果中随机选一个
+                 
              def get_random_comic_from_multiple_pages(max_page=3):
-                  """从多页结果中随机选一个本子"""
                   all_comics = []
-                  current_page_num = 1  # 手动追踪当前页码
-    
-    # 遍历多页
+                  current_page_num = 1 
+                 
                   for page in cl.categories_filter_gen(
                      page=1,
                      time=JmMagicConstants.TIME_WEEK,
                      category=JmMagicConstants.CATEGORY_ALL,
                      order_by=JmMagicConstants.ORDER_BY_VIEW,
                           ):
-        # 收集当前页的所有本子
                     all_comics.extend(list(page))
-        
+                              
                     if current_page_num >= max_page:
                          break
-        
-                    current_page_num += 1  # 页码自增
-
+                    current_page_num += 1 
+                              
                   if all_comics:
                      return random.choice(all_comics)
                   return None, None
-
              aid2, atitle2 = get_random_comic_from_multiple_pages(max_page=5)
              chain=[
                         Comp.Plain(f"随机选中的本子：ID: {aid2}, 标题: {atitle2}")
              ]
              yield event.chain_result(chain)
+            
         if command_type == "tag":
+            
             if len(args) < 3:
                 yield event.plain_result("请输入标签：/jmcomic tag [标签]")
                 return
@@ -188,15 +162,13 @@ class MyPlugin(Star):
             target_download_path = os.path.join(work_dir, 'downloads')
             os.makedirs(target_download_path, exist_ok=True)
             client = option.new_jm_client()
-            
             print(f'\n[开始搜索] 标签: {tag}')
-            
             aid_list = []
+            
             for page_num in range(1, 11):
                 page: JmSearchPage = client.search_tag(tag, page=page_num)
                 for aid, atitle, tag_list in page.iter_id_title_tag():
                     aid_list.append((aid, atitle))
-            
             print(f'[搜索完成] 共找到 {len(aid_list)} 个相册')
             
             if aid_list:
@@ -205,20 +177,13 @@ class MyPlugin(Star):
                 aid, atitle = random_album
                 print(f'[随机选中] AID: {aid}, 标题: {atitle}')
                 print(f'[下载开始] 正在下载...')
-                
-                # 记录下载前的文件列表（监控实际工作目录）
                 before_download = set(os.listdir(work_dir)) if os.path.exists(work_dir) else set()
-                
                 download_album([aid], option)
-                
                 print('[下载完成] 正在移动文件...')
-                
-                # 找到新增的文件夹（下载的相册）
                 after_download = set(os.listdir(work_dir)) if os.path.exists(work_dir) else set()
                 new_folders = after_download - before_download
                 
                 if new_folders:
-                    # 移动新下载的文件夹到目标位置
                     for new_folder in new_folders:
                         src_path = os.path.join(work_dir, new_folder)
                         dst_path = os.path.join(target_download_path, new_folder)
@@ -230,20 +195,16 @@ class MyPlugin(Star):
                                 shutil.rmtree(dst_path)
                             shutil.move(src_path, dst_path)
                             print(f'[成功] 已移动到 {dst_path}')
-                            
-                            # 转换PDF并发送
                             album_folder = Path(dst_path)
+                            
                             if album_folder.exists():
                                 pdf_filename = f"JM_{aid}_{int(time.time())}.pdf"
                                 pdf_path_obj = Path(work_dir) / pdf_filename
-                                
-                                # 收集图片路径并排序（确保页码顺序正确）
                                 extensions = ('.jpg', '.jpeg', '.png', '.webp')
                                 img_paths = sorted([str(f) for f in album_folder.rglob('*') 
                                                   if f.suffix.lower() in extensions])
                                 
                                 if img_paths:
-                                    # 转换为 PDF
                                     with open(pdf_path_obj, "wb") as f:
                                         f.write(img2pdf.convert(img_paths))
                                     
@@ -252,8 +213,6 @@ class MyPlugin(Star):
                                         Comp.File(file=str(pdf_full_path), name=f"JM_{aid}.pdf"),
                                     ]
                                     yield event.chain_result(components)
-                                    
-                                    # 清理文件
                                     shutil.rmtree(album_folder)
                                     os.remove(pdf_path_obj)
                 else:
