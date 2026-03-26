@@ -18,3 +18,8 @@
 /jmcomic tag [标签] 用相关标签搜索并下载本子
 
 本人第一次写相关仓库如有不好的地方或者bug还请提出
+
+效果如下图
+
+
+<img width="391" height="137" alt="image" src="https://github.com/user-attachments/assets/9f144b1c-9314-450e-830f-37ed627f5090" />
