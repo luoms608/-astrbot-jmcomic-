@@ -33,13 +33,11 @@ class MyPlugin(Star):
             return
         command_type = args[1]
         if command_type == "info":
-            
             if len(args) < 3:
                     yield event.plain_result("请输入作品id：/jmcomic info [id]")
                     return
                     
             id = args[2]
-            
             if not id.isdigit():
                     yield event.plain_result("作品ID必须是数字")
                     return
@@ -50,23 +48,18 @@ class MyPlugin(Star):
             yield event.image_result(image_path)
             id=str(id).strip()
             detail= client.get_album_detail(id)
-            
             if not detail:
                   yield event.plain_result("未找到该作品信息")
                   return
             yield  event.plain_result(detail.title)
-            
             if os.path.exists(image_path):
                  os.remove(image_path)
-                
         elif command_type == "download":
-            
             if len(args) < 3:
                     yield event.plain_result("请输入作品id：/jmcomic download [id]")
                     return
                     
             id = args[2]
-            
             if not id.isdigit():
                     yield event.plain_result("作品ID必须是数字")
                     return
@@ -79,7 +72,7 @@ class MyPlugin(Star):
             download_album(album_id, option)
             after_dirs = set([d.name for d in Path('.').iterdir() if d.is_dir()])
             new_dirs = after_dirs - before_dirs
-   
+            
             if new_dirs:
                album_folder = Path(list(new_dirs)[0])
                pdf_filename = f"JM_{album_id}_{int(time.time())}.pdf"
@@ -91,16 +84,15 @@ class MyPlugin(Star):
                       if f.suffix.lower() in extensions
                              ]
                img_paths.sort()
-                
                if img_paths:
                    with open(pdf_path_obj, "wb") as f:
                      f.write(img2pdf.convert(img_paths))
+        
                    file_count = len(img_paths)
                    pdf_full_path = str(pdf_path_obj).replace("\\", "/")
                    components = [
-                        Comp.File(file=str(pdf_full_path), name=f"JM_{album_id}.pdf"),
+                        Comp.File(file=str(pdf_full_path), name=f"JM_{album_id}.pdf"),      
         ]
-        
                    yield event.chain_result(components)
                    shutil.rmtree(album_folder)
                    os.remove(pdf_path_obj)
@@ -108,7 +100,7 @@ class MyPlugin(Star):
         if command_type == "random":
              op = JmOption.default()
              cl = op.new_jm_client()
-            
+
              def get_random_comic_from_category():
                   page = cl.categories_filter(
                   page=1, 
@@ -117,17 +109,16 @@ class MyPlugin(Star):
                  order_by=JmMagicConstants.ORDER_BY_VIEW,
                    )
                   comic_list = list(page) 
-                 
+
                   if not comic_list:
                      print("没有找到符合条件的本子")
                      return None, None
                   random_comic = random.choice(comic_list)
                   return random_comic
-                 
+
              def get_random_comic_from_multiple_pages(max_page=3):
                   all_comics = []
-                  current_page_num = 1 
-                 
+                  current_page_num = 1  
                   for page in cl.categories_filter_gen(
                      page=1,
                      time=JmMagicConstants.TIME_WEEK,
@@ -135,50 +126,86 @@ class MyPlugin(Star):
                      order_by=JmMagicConstants.ORDER_BY_VIEW,
                           ):
                     all_comics.extend(list(page))
-                              
                     if current_page_num >= max_page:
                          break
-                    current_page_num += 1 
-                              
+                    current_page_num += 1  
                   if all_comics:
                      return random.choice(all_comics)
                   return None, None
+
              aid2, atitle2 = get_random_comic_from_multiple_pages(max_page=5)
              chain=[
                         Comp.Plain(f"随机选中的本子：ID: {aid2}, 标题: {atitle2}")
              ]
              yield event.chain_result(chain)
-            
         if command_type == "tag":
-            
             if len(args) < 3:
                 yield event.plain_result("请输入标签：/jmcomic tag [标签]")
                 return
             
-            tag = args[2]
+            tag = " ".join(args[2:]).strip()
             option = JmOption.default()
             
             work_dir = os.getcwd()
             target_download_path = os.path.join(work_dir, 'downloads')
             os.makedirs(target_download_path, exist_ok=True)
             client = option.new_jm_client()
-            print(f'\n[开始搜索] 标签: {tag}')
-            aid_list = []
             
+            print(f'\n[开始搜索] 标签: {tag}')
+            
+            aid_map = {}
             for page_num in range(1, 11):
                 page: JmSearchPage = client.search_tag(tag, page=page_num)
+                has_data = False
                 for aid, atitle, tag_list in page.iter_id_title_tag():
-                    aid_list.append((aid, atitle))
-            print(f'[搜索完成] 共找到 {len(aid_list)} 个相册')
+                    aid_map.setdefault(aid, atitle)
+                    has_data = True
+                if not has_data:
+                    break
+
+            if not aid_map:
+                print(f"[标签未命中] 改用角色关键词搜索: {tag}")
+                for page_num in range(1, 6):
+                    page: JmSearchPage = client.search_actor(tag, page=page_num)
+                    has_data = False
+                    for aid, atitle, tag_list in page.iter_id_title_tag():
+                        aid_map.setdefault(aid, atitle)
+                        has_data = True
+                    if not has_data:
+                        break
+
+            if not aid_map:
+                print(f"[角色未命中] 改用作品名关键词搜索: {tag}")
+                for page_num in range(1, 6):
+                    page: JmSearchPage = client.search_work(tag, page=page_num)
+                    has_data = False
+                    for aid, atitle, tag_list in page.iter_id_title_tag():
+                        aid_map.setdefault(aid, atitle)
+                        has_data = True
+                    if not has_data:
+                        break
+
+            if not aid_map:
+                print(f"[作品名未命中] 改用作者关键词搜索: {tag}")
+                for page_num in range(1, 6):
+                    page: JmSearchPage = client.search_author(tag, page=page_num)
+                    has_data = False
+                    for aid, atitle, tag_list in page.iter_id_title_tag():
+                        aid_map.setdefault(aid, atitle)
+                        has_data = True
+                    if not has_data:
+                        break
             
-            if aid_list:
-                # 随机选择一个相册
-                random_album = random.choice(aid_list)
-                aid, atitle = random_album
+            print(f'[搜索完成] 共找到 {len(aid_map)} 个相册')
+            
+            if aid_map:
+                aid, atitle = random.choice(list(aid_map.items()))
                 print(f'[随机选中] AID: {aid}, 标题: {atitle}')
                 print(f'[下载开始] 正在下载...')
                 before_download = set(os.listdir(work_dir)) if os.path.exists(work_dir) else set()
+                
                 download_album([aid], option)
+                
                 print('[下载完成] 正在移动文件...')
                 after_download = set(os.listdir(work_dir)) if os.path.exists(work_dir) else set()
                 new_folders = after_download - before_download
@@ -196,7 +223,6 @@ class MyPlugin(Star):
                             shutil.move(src_path, dst_path)
                             print(f'[成功] 已移动到 {dst_path}')
                             album_folder = Path(dst_path)
-                            
                             if album_folder.exists():
                                 pdf_filename = f"JM_{aid}_{int(time.time())}.pdf"
                                 pdf_path_obj = Path(work_dir) / pdf_filename
